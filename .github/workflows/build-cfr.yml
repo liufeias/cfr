@@ -1,0 +1,66 @@
+name: Build CFR JAR
+
+# 纯手动触发：只在 Actions 页面点击 "Run workflow" 时运行
+on:
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository (with submodules)
+        uses: actions/checkout@v4
+        with:
+          submodules: recursive
+          fetch-depth: 0        # git-commit-id-plugin 需要完整历史
+
+      - name: Set up JDK 8 (Temurin)
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '8'
+          cache: maven
+
+      - name: Show Java / Maven versions
+        run: |
+          java -version
+          mvn -version
+
+      - name: Build CFR with Maven
+        run: mvn --batch-mode -Dgpg.skip=true clean package
+
+      - name: List produced artifacts
+        run: ls -lh target/*.jar
+
+      # ---------- 上传主 jar ----------
+      - name: Upload main CFR jar
+        uses: actions/upload-artifact@v4
+        with:
+          name: cfr-main-jar
+          path: target/cfr-*-SNAPSHOT.jar
+          if-no-files-found: error
+
+      # ---------- 上传 sources jar（可选） ----------
+      - name: Upload sources jar
+        uses: actions/upload-artifact@v4
+        with:
+          name: cfr-sources-jar
+          path: target/cfr-*-SNAPSHOT-sources.jar
+          if-no-files-found: warn
+
+      # ---------- 上传 javadoc jar（可选） ----------
+      - name: Upload javadoc jar
+        uses: actions/upload-artifact@v4
+        with:
+          name: cfr-javadoc-jar
+          path: target/cfr-*-SNAPSHOT-javadoc.jar
+          if-no-files-found: warn
+
+      # ---------- 一次性打包全部 jar（方便下载） ----------
+      - name: Upload all jars as single bundle
+        uses: actions/upload-artifact@v4
+        with:
+          name: CFR-All-JARs
+          path: target/*.jar
+          if-no-files-found: error
